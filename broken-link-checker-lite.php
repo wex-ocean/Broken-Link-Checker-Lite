@@ -20,6 +20,7 @@ define( 'BLC_LITE_DIR', plugin_dir_path( __FILE__ ) );
 require_once BLC_LITE_DIR . 'includes/class-blc-lite-db.php';
 require_once BLC_LITE_DIR . 'includes/class-blc-lite-scanner.php';
 require_once BLC_LITE_DIR . 'includes/class-blc-lite-checker.php';
+require_once BLC_LITE_DIR . 'includes/class-blc-lite-scheduler.php';
 require_once BLC_LITE_DIR . 'admin/class-blc-lite-admin.php';
 
 register_activation_hook( __FILE__, array( 'BLC_Lite_Checker', 'activate' ) );

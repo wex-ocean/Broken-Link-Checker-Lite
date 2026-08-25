@@ -28,6 +28,7 @@ class BLC_Lite_Checker {
 	 */
 	public static function activate() {
 		BLC_Lite_DB::activate();
+		BLC_Lite_Scheduler::activate();
 
 		if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
 			wp_schedule_event( time() + MINUTE_IN_SECONDS, 'hourly', self::CRON_HOOK );
@@ -40,6 +41,8 @@ class BLC_Lite_Checker {
 	 * @return void
 	 */
 	public static function deactivate() {
+		BLC_Lite_Scheduler::deactivate();
+
 		$timestamp = wp_next_scheduled( self::CRON_HOOK );
 
 		if ( $timestamp ) {
