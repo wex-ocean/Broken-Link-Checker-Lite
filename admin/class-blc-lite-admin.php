@@ -43,6 +43,8 @@ class BLC_Lite_Admin {
 	 */
 	public static function render_page() {
 		$settings = BLC_Lite_Scheduler::get_settings();
+		$broken_links_table = new BLC_Lite_Broken_Links_Table();
+		$broken_links_table->prepare_items();
 		?>
 		<div class="wrap">
 			<h1><?php echo esc_html__( 'Broken Link Checker Lite', 'broken-link-checker-lite' ); ?></h1>
@@ -79,6 +81,8 @@ class BLC_Lite_Admin {
 				<?php wp_nonce_field( 'blc_lite_manual_scan' ); ?>
 				<?php submit_button( __( 'Run Scan Now', 'broken-link-checker-lite' ), 'secondary' ); ?>
 			</form>
+			<h2><?php echo esc_html__( 'Broken Links', 'broken-link-checker-lite' ); ?></h2>
+			<?php $broken_links_table->display(); ?>
 		</div>
 		<?php
 	}
