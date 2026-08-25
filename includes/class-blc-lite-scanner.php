@@ -14,9 +14,16 @@ class BLC_Lite_Scanner {
 	 * @return int Number of links stored.
 	 */
 	public static function scan_all() {
+		$post_types = get_post_types( array( 'public' => true ), 'names' );
+		$post_types = array_values( array_diff( $post_types, BLC_Lite_Exclusions::get_settings()['post_types'] ) );
+
+		if ( empty( $post_types ) ) {
+			return 0;
+		}
+
 		$posts = get_posts(
 			array(
-				'post_type'      => array( 'post', 'page' ),
+				'post_type'      => $post_types,
 				'post_status'    => 'publish',
 				'posts_per_page' => -1,
 				'orderby'        => 'ID',
@@ -27,10 +34,14 @@ class BLC_Lite_Scanner {
 		$stored_count = 0;
 
 		foreach ( $posts as $post ) {
+			if ( BLC_Lite_Exclusions::is_post_type_excluded( $post->post_type ) ) {
+				continue;
+			}
+
 			$links = array_unique( self::extract_links( $post->post_content ) );
 
 			foreach ( $links as $url ) {
-				if ( '' === trim( $url ) ) {
+				if ( '' === trim( $url ) || BLC_Lite_Exclusions::is_url_excluded( $url ) ) {
 					continue;
 				}
 

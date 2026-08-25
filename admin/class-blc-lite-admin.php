@@ -16,6 +16,7 @@ class BLC_Lite_Admin {
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ) );
 		add_action( 'admin_init', array( 'BLC_Lite_Scheduler', 'register_settings' ) );
+		add_action( 'admin_init', array( 'BLC_Lite_Exclusions', 'register_settings' ) );
 		add_action( 'admin_post_blc_lite_manual_scan', array( __CLASS__, 'manual_scan' ) );
 		add_action( 'admin_post_blc_lite_rescan_link', array( __CLASS__, 'rescan_link' ) );
 		add_action( 'admin_post_blc_lite_remove_link', array( __CLASS__, 'remove_link' ) );
@@ -44,12 +45,23 @@ class BLC_Lite_Admin {
 	 * @return void
 	 */
 	public static function render_page() {
+		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'dashboard';
+
+		if ( 'exclusions' === $tab ) {
+			self::render_exclusions_page();
+			return;
+		}
+
 		$settings = BLC_Lite_Scheduler::get_settings();
 		$broken_links_table = new BLC_Lite_Broken_Links_Table();
 		$broken_links_table->prepare_items();
 		?>
 		<div class="wrap">
 			<h1><?php echo esc_html__( 'Broken Link Checker Lite', 'broken-link-checker-lite' ); ?></h1>
+			<nav class="nav-tab-wrapper">
+				<a class="nav-tab nav-tab-active" href="<?php echo esc_url( admin_url( 'admin.php?page=broken-link-checker-lite' ) ); ?>"><?php echo esc_html__( 'Dashboard', 'broken-link-checker-lite' ); ?></a>
+				<a class="nav-tab" href="<?php echo esc_url( admin_url( 'admin.php?page=broken-link-checker-lite&tab=exclusions' ) ); ?>"><?php echo esc_html__( 'Exclusions', 'broken-link-checker-lite' ); ?></a>
+			</nav>
 			<form action="options.php" method="post">
 				<?php
 				settings_fields( 'blc_lite_settings' );
@@ -85,6 +97,49 @@ class BLC_Lite_Admin {
 			</form>
 			<h2><?php echo esc_html__( 'Broken Links', 'broken-link-checker-lite' ); ?></h2>
 			<?php $broken_links_table->display(); ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render URL and post-type exclusion settings.
+	 *
+	 * @return void
+	 */
+	private static function render_exclusions_page() {
+		$settings    = BLC_Lite_Exclusions::get_settings();
+		$post_types  = get_post_types( array( 'public' => true ), 'objects' );
+		?>
+		<div class="wrap">
+			<h1><?php echo esc_html__( 'Broken Link Checker Lite', 'broken-link-checker-lite' ); ?></h1>
+			<nav class="nav-tab-wrapper">
+				<a class="nav-tab" href="<?php echo esc_url( admin_url( 'admin.php?page=broken-link-checker-lite' ) ); ?>"><?php echo esc_html__( 'Dashboard', 'broken-link-checker-lite' ); ?></a>
+				<a class="nav-tab nav-tab-active" href="<?php echo esc_url( admin_url( 'admin.php?page=broken-link-checker-lite&tab=exclusions' ) ); ?>"><?php echo esc_html__( 'Exclusions', 'broken-link-checker-lite' ); ?></a>
+			</nav>
+			<form action="options.php" method="post">
+				<?php settings_fields( 'blc_lite_exclusions' ); ?>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><label for="blc-lite-url-patterns"><?php echo esc_html__( 'Excluded URL patterns', 'broken-link-checker-lite' ); ?></label></th>
+						<td>
+							<textarea id="blc-lite-url-patterns" name="<?php echo esc_attr( BLC_Lite_Exclusions::SETTINGS_KEY ); ?>[url_patterns]" rows="8" cols="60" class="large-text code"><?php echo esc_textarea( implode( "\n", $settings['url_patterns'] ) ); ?></textarea>
+							<p class="description"><?php echo esc_html__( 'Enter one URL or wildcard pattern per line. Use * to match any characters.', 'broken-link-checker-lite' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php echo esc_html__( 'Excluded post types', 'broken-link-checker-lite' ); ?></th>
+						<td>
+							<?php foreach ( $post_types as $post_type ) : ?>
+								<label style="display:block;margin-bottom:6px;">
+									<input type="checkbox" name="<?php echo esc_attr( BLC_Lite_Exclusions::SETTINGS_KEY ); ?>[post_types][]" value="<?php echo esc_attr( $post_type->name ); ?>" <?php checked( in_array( $post_type->name, $settings['post_types'], true ) ); ?> />
+									<?php echo esc_html( $post_type->labels->name ); ?>
+								</label>
+							<?php endforeach; ?>
+						</td>
+					</tr>
+				</table>
+				<?php submit_button(); ?>
+			</form>
 		</div>
 		<?php
 	}
