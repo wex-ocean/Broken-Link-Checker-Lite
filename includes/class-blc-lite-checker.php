@@ -92,6 +92,37 @@ class BLC_Lite_Checker {
 	}
 
 	/**
+	 * Recheck one stored link immediately.
+	 *
+	 * @param int $link_id Stored link ID.
+	 * @return bool Whether the row was updated.
+	 */
+	public static function check_link( $link_id ) {
+		global $wpdb;
+
+		$link = $wpdb->get_row( $wpdb->prepare( 'SELECT id, url FROM ' . BLC_Lite_DB::table_name() . ' WHERE id = %d', $link_id ) );
+
+		if ( ! $link ) {
+			return false;
+		}
+
+		$result = self::request_link( $link->url );
+
+		return false !== $wpdb->update(
+			BLC_Lite_DB::table_name(),
+			array(
+				'http_status' => $result['http_status'],
+				'error_type'  => $result['error_type'],
+				'last_checked'=> current_time( 'mysql', true ),
+				'status'      => $result['status'],
+			),
+			array( 'id' => $link->id ),
+			array( '%d', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	/**
 	 * Request a URL with HEAD, falling back to GET when HEAD is unsupported.
 	 *
 	 * @param string $url Link URL.

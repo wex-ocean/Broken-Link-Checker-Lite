@@ -17,6 +17,8 @@ class BLC_Lite_Admin {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ) );
 		add_action( 'admin_init', array( 'BLC_Lite_Scheduler', 'register_settings' ) );
 		add_action( 'admin_post_blc_lite_manual_scan', array( __CLASS__, 'manual_scan' ) );
+		add_action( 'admin_post_blc_lite_rescan_link', array( __CLASS__, 'rescan_link' ) );
+		add_action( 'admin_post_blc_lite_remove_link', array( __CLASS__, 'remove_link' ) );
 	}
 
 	/**
@@ -101,6 +103,61 @@ class BLC_Lite_Admin {
 		BLC_Lite_Scanner::scan_all();
 
 		wp_safe_redirect( admin_url( 'admin.php?page=broken-link-checker-lite&scan=complete' ) );
+		exit;
+	}
+
+	/**
+	 * Recheck one link from its row action.
+	 *
+	 * @return void
+	 */
+	public static function rescan_link() {
+		$link_id = isset( $_GET['link_id'] ) ? absint( $_GET['link_id'] ) : 0;
+		self::authorize_link_action( $link_id, 'blc_lite_rescan_' . $link_id );
+		BLC_Lite_Checker::check_link( $link_id );
+		self::redirect_to_dashboard();
+	}
+
+	/**
+	 * Remove one link from its row action.
+	 *
+	 * @return void
+	 */
+	public static function remove_link() {
+		global $wpdb;
+
+		$link_id = isset( $_GET['link_id'] ) ? absint( $_GET['link_id'] ) : 0;
+		self::authorize_link_action( $link_id, 'blc_lite_remove_' . $link_id );
+		$wpdb->delete( BLC_Lite_DB::table_name(), array( 'id' => $link_id ), array( '%d' ) );
+		self::redirect_to_dashboard();
+	}
+
+	/**
+	 * Validate permissions and the row-action nonce.
+	 *
+	 * @param int    $link_id Link ID.
+	 * @param string $action Nonce action.
+	 * @return void
+	 */
+	private static function authorize_link_action( $link_id, $action ) {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to manage links.', 'broken-link-checker-lite' ) );
+		}
+
+		check_admin_referer( $action );
+
+		if ( ! $link_id ) {
+			wp_die( esc_html__( 'The link could not be found.', 'broken-link-checker-lite' ) );
+		}
+	}
+
+	/**
+	 * Return to the plugin dashboard.
+	 *
+	 * @return void
+	 */
+	private static function redirect_to_dashboard() {
+		wp_safe_redirect( admin_url( 'admin.php?page=broken-link-checker-lite' ) );
 		exit;
 	}
 }
