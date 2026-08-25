@@ -15,10 +15,17 @@ relative links are classified as internal and links with a scheme are external.
 `BLC_Lite_Checker::check_batch()` checks up to 20 pending links per WP Cron run
 using `wp_remote_head()` with a `wp_remote_get()` fallback.
 
+The Dashboard includes a secure AJAX-powered Scan Now action with progress
+feedback. Admin actions and scan requests require capability and nonce checks.
+
 == Scheduled scans ==
 Use the Link Checker Lite settings page to enable daily or weekly background
 scans. Manual-only mode disables recurring scans; the Run Scan Now action is
 available for on-demand scans.
+
+== Exclusions ==
+The Exclusions tab supports wildcard URL patterns and exclusions for public
+post types.
 
 == Database table ==
 The activation hook creates the {$wpdb->prefix}blc_lite_links table with dbDelta().

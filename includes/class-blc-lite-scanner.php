@@ -14,30 +14,48 @@ class BLC_Lite_Scanner {
 	 * @return int Number of links stored.
 	 */
 	public static function scan_all() {
-		$post_types = get_post_types( array( 'public' => true ), 'names' );
-		$post_types = array_values( array_diff( $post_types, BLC_Lite_Exclusions::get_settings()['post_types'] ) );
+		$offset      = 0;
+		$stored_count = 0;
+
+		do {
+			$result       = self::scan_batch( $offset, 50 );
+			$stored_count += $result['stored'];
+			$offset       = $result['next_offset'];
+		} while ( ! $result['done'] );
+
+		return $stored_count;
+	}
+
+	/**
+	 * Scan one bounded batch for AJAX or background callers.
+	 *
+	 * @param int $offset Offset into the published post list.
+	 * @param int $batch_size Number of posts to process.
+	 * @return array
+	 */
+	public static function scan_batch( $offset = 0, $batch_size = 20 ) {
+		$post_types = self::get_scan_post_types();
+		$offset     = max( 0, absint( $offset ) );
+		$batch_size = min( 50, max( 1, absint( $batch_size ) ) );
 
 		if ( empty( $post_types ) ) {
-			return 0;
+			return array( 'processed' => 0, 'stored' => 0, 'total' => 0, 'next_offset' => $offset, 'done' => true );
 		}
 
 		$posts = get_posts(
 			array(
 				'post_type'      => $post_types,
 				'post_status'    => 'publish',
-				'posts_per_page' => -1,
+				'posts_per_page' => $batch_size,
+				'offset'         => $offset,
 				'orderby'        => 'ID',
 				'order'          => 'ASC',
 			)
 		);
-
-		$stored_count = 0;
+		$total         = self::count_scan_posts( $post_types );
+		$stored_count  = 0;
 
 		foreach ( $posts as $post ) {
-			if ( BLC_Lite_Exclusions::is_post_type_excluded( $post->post_type ) ) {
-				continue;
-			}
-
 			$links = array_unique( self::extract_links( $post->post_content ) );
 
 			foreach ( $links as $url ) {
@@ -45,19 +63,50 @@ class BLC_Lite_Scanner {
 					continue;
 				}
 
-				$inserted = self::store_link(
-					$post->ID,
-					$url,
-					self::classify_link( $url )
-				);
-
-				if ( $inserted ) {
+				if ( self::store_link( $post->ID, $url, self::classify_link( $url ) ) ) {
 					$stored_count++;
 				}
 			}
 		}
 
-		return $stored_count;
+		$processed   = count( $posts );
+		$next_offset = $offset + $processed;
+
+		return array(
+			'processed'   => $processed,
+			'stored'      => $stored_count,
+			'total'       => $total,
+			'next_offset' => $next_offset,
+			'done'        => $next_offset >= $total,
+		);
+	}
+
+	/**
+	 * Return public post types that are enabled for scanning.
+	 *
+	 * @return array
+	 */
+	private static function get_scan_post_types() {
+		$post_types = get_post_types( array( 'public' => true ), 'names' );
+
+		return array_values( array_diff( $post_types, BLC_Lite_Exclusions::get_settings()['post_types'] ) );
+	}
+
+	/**
+	 * Count published posts in the selected post types.
+	 *
+	 * @param array $post_types Post type names.
+	 * @return int
+	 */
+	private static function count_scan_posts( $post_types ) {
+		$total = 0;
+
+		foreach ( $post_types as $post_type ) {
+			$counts = wp_count_posts( $post_type );
+			$total += isset( $counts->publish ) ? (int) $counts->publish : 0;
+		}
+
+		return $total;
 	}
 
 	/**

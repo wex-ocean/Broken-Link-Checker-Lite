@@ -20,6 +20,8 @@ class BLC_Lite_Admin {
 		add_action( 'admin_post_blc_lite_manual_scan', array( __CLASS__, 'manual_scan' ) );
 		add_action( 'admin_post_blc_lite_rescan_link', array( __CLASS__, 'rescan_link' ) );
 		add_action( 'admin_post_blc_lite_remove_link', array( __CLASS__, 'remove_link' ) );
+		add_action( 'wp_ajax_blc_lite_scan_progress', array( __CLASS__, 'scan_progress' ) );
+		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
 	}
 
 	/**
@@ -90,15 +92,46 @@ class BLC_Lite_Admin {
 				<?php submit_button(); ?>
 			</form>
 			<hr />
-			<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post">
-				<input type="hidden" name="action" value="blc_lite_manual_scan" />
-				<?php wp_nonce_field( 'blc_lite_manual_scan' ); ?>
-				<?php submit_button( __( 'Run Scan Now', 'broken-link-checker-lite' ), 'secondary' ); ?>
-			</form>
+			<button type="button" class="button button-secondary" id="blc-lite-scan-now"><?php echo esc_html__( 'Scan Now', 'broken-link-checker-lite' ); ?></button>
+			<div id="blc-lite-scan-progress" hidden aria-live="polite">
+				<progress max="100" value="0"></progress>
+				<span class="blc-lite-scan-progress-label">0%</span>
+			</div>
 			<h2><?php echo esc_html__( 'Broken Links', 'broken-link-checker-lite' ); ?></h2>
 			<?php $broken_links_table->display(); ?>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Enqueue the manual scan progress script on the plugin page.
+	 *
+	 * @param string $hook_suffix Current admin page hook.
+	 * @return void
+	 */
+	public static function enqueue_assets( $hook_suffix ) {
+		if ( 'toplevel_page_broken-link-checker-lite' !== $hook_suffix ) {
+			return;
+		}
+
+		wp_enqueue_script( 'blc-lite-admin', plugins_url( 'js/admin.js', __FILE__ ), array(), BLC_LITE_VERSION, true );
+		wp_localize_script( 'blc-lite-admin', 'blcLiteScan', array( 'ajaxUrl' => admin_url( 'admin-ajax.php' ), 'nonce' => wp_create_nonce( 'blc_lite_scan_progress' ) ) );
+	}
+
+	/**
+	 * Process one authorized manual scan batch.
+	 *
+	 * @return void
+	 */
+	public static function scan_progress() {
+		check_ajax_referer( 'blc_lite_scan_progress', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'You are not allowed to scan.', 'broken-link-checker-lite' ) ), 403 );
+		}
+
+		$offset = isset( $_POST['offset'] ) ? absint( $_POST['offset'] ) : 0;
+		wp_send_json_success( BLC_Lite_Scanner::scan_batch( $offset, 20 ) );
 	}
 
 	/**
